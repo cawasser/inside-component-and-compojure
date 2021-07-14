@@ -11,9 +11,9 @@
   [:div.container.px-2
    [:div.row.gx-3 {:style "text-align:center"}
     [:div.col
-     [:p.bg-primary.text-white.fs-2 title]]
+     [:p.bg-info.fs-2 title]]
     [:div.col
-     [:p.p-3.fs-4 text]]]])
+     [:p.bg-success.text-white.fs-2 text]]]])
 
 (defn- the-five-ideals []
   (html5 {:lang "en"}
