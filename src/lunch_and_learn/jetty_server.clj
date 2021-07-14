@@ -11,7 +11,7 @@
   component/Lifecycle
   (start [component]
     (println ";; Starting HTTP server")
-    (let [server (jetty/run-jetty #'app {:port 5000 :join? false})]
+    (let [server (jetty/run-jetty #'app {:port 5005 :join? false})]
       (assoc component :server server)))
   (stop [component]
     (println ";; Stopping HTTP server")
