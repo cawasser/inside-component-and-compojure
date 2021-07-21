@@ -7,7 +7,7 @@
 
 (def handler
   (routes
-    (GET "/" [] "<h1>hello world, from the REPL!</h1>")))
+    (GET "/" req "<h1>hello world, from the REPL!</h1>")))
 
 
 (def not-found
