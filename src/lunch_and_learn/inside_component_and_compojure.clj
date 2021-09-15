@@ -39,6 +39,8 @@
     (add-tap #'p/submit))
 
   (tap> "hello")
+  (tap> [1 2 3 4 {:a 1 :b 2}])
+
   ; Clear all values
   (p/clear)
   ; Remove portal from tap> targetset
@@ -58,6 +60,33 @@
 
   ())
 
+; play with Reveal
+(comment
+
+  "https://vlaaad.github.io/reveal/"
+
+  (tap> "hello")
+  (tap> [1 2 3 4 {:a 1 :b 2}])
+
+  (all-ns)
+
+  (System/getProperty "vlaaad.reveal.prefs")
+
+  ; clear the reveal window
+  {:vlaaad.reveal/command '(clear-output)}
+
+  (def an-atom (atom {:a 1}))
+
+  (reset! an-atom {:b 3})
+  (swap! an-atom assoc :a 10)
+
+
+  {:vlaaad.reveal/command '(open-view {:fx/type action-view
+                                       :action :vlaaad.reveal.action/view:table
+                                       :value v})
+   :env {'v (ns-publics *ns*)}}
+
+  ())
 
 ; play wth kaocha (test-runner) from the REPL
 (comment
@@ -97,9 +126,19 @@
   ())
 
 
+
+; can we use add-libs in THIS project?
+(comment
+  (require '[clojure.tools.deps.alpha.repl :refer [add-libs]])
+
+  (add-libs '{ring/ring {:mvn/version "1.9.4"}})
+
+  ())
+
 ; NEXT STEPS
 ;
 ; middleware
+;       transit
 ;
 
 

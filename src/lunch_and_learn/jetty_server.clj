@@ -6,7 +6,9 @@
             [ring.adapter.jetty :as jetty]))
 
 
+; see "https://vlaaad.github.io/reveal/"
 
+"https://github.com/cawasser"
 
 
 (defrecord HTTPServer [port server]
