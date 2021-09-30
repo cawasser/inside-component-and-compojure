@@ -2,36 +2,27 @@
   (:require [compojure.api.sweet :as sw]
             [ring.util.http-response :as resp]
             [schema.core :as s]
-            [lunch-and-learn.roll :as roll]))
+            [lunch-and-learn.roll :as roll]
+            [lunch-and-learn.data-source :as ds]))
 
 
 
-(def app
+(defn app [topology]
   (sw/api
     {:swagger
      {:ui "/api"
       :spec "/swagger.json"
-      :data {:info {:title "Dice-api"
-                    :description "Compojure Api example"}
-             :tags [{:name "api", :description "some apis"}]}}}
+      :data {:info {:title "AOI State"
+                    :description "Get the current state of Areas of Interest"}
+             :tags [{:name "api", :description "AOI queries"}]}}}
 
     (sw/context "/" []
       :tags ["api"]
 
-      roll/routes
-
-      ;pizza/routes
-
-      (sw/GET "/" []
-        :return s/Str
-        :summary "the main page"
-        (resp/ok "<h1>This is the Intro Page</h1>")))))
+      (ds/queries topology))))
 
 
-
-
-
-
+; the same endpoint can be expressed as data (reitit) AND macros (compojure)
 (comment
   ;reitit version
   ["/plus"

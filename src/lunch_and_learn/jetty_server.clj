@@ -11,12 +11,12 @@
 "https://github.com/cawasser"
 
 
-(defrecord HTTPServer [port server]
+(defrecord HTTPServer [port server topology]
   component/Lifecycle
   (start [component]
     (println ";; Starting HTTP server")
     (tap> "starting server")
-    (let [server (jetty/run-jetty #'app {:port port :join? false})]
+    (let [server (jetty/run-jetty (app topology) {:port port :join? false})]
       (assoc component :server server)))
   (stop [component]
     (println ";; Stopping HTTP server")

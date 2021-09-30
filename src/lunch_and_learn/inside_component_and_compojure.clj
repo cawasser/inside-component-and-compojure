@@ -1,7 +1,8 @@
 (ns lunch-and-learn.inside-component-and-compojure
   (:require [com.stuartsierra.component :as component]
             [com.stuartsierra.component.repl :refer [reset set-init start stop system]]
-            [lunch-and-learn.jetty-server :as server])
+            [lunch-and-learn.jetty-server :as server]
+            [lunch-and-learn.data-service :as topo])
   (:gen-class))
 
 
@@ -9,10 +10,11 @@
 
 (defn new-system [_]
   (component/system-map
-    :server (server/new-http-server 5050)))
+    :server (component/using (server/map->HTTPServer {:port 5050}) [:topology])
+    :topology (topo/new-kafka-topology "aois" "aoi-state")))
 
 
-; run the serve form the REPL
+; run the server from the REPL
 (comment
   ; init the system so we can start and stop it from the REPL
   (set-init new-system)
@@ -21,6 +23,7 @@
 
   (keys system)
   (:server system)
+  (:topology system)
 
   (stop)
 
