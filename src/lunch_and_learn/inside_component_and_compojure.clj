@@ -33,6 +33,19 @@
 
   ())
 
+; can we query the topology?
+(comment
+
+  (import '[org.apache.kafka.streams.state QueryableStoreTypes])
+  (-> (:topology (:topology system))
+    (.store "aoi-state" (QueryableStoreTypes/keyValueStore))
+    (.get {:aoi "alpha"}))
+
+
+  (topo/get-one-aoi (:topology system) "aoi-state" "alpha")
+
+  ())
+
 
 ; play with :inspect/portal-cli (or :inspect/reveal)
 (comment

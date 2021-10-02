@@ -12,17 +12,18 @@
 
 
 (defn get-aois [topology]
-  (->> "aoi-state"
-    (topo/get-all-aois topology)
+  (->> (:out-topic topology)
+    (topo/get-all-aois (:topology topology))
     (map (fn [[k v]]
-           {(:id k) v}))
-    (into {})))
+           {:id (:aoi k) :data-set v}))
+    (into [])))
 
 
 (defn get-aoi [topology id]
-  {:id id :data-set (topo/get-one-aoi topology "aoi-state" id)})
+  {:id id :data-set (topo/get-one-aoi (:topology topology)
+                      (:out-topic topology)
+                      id)})
 
-(topo/get-one-aoi {} "aoi-state" "bravo")
 
 (s/defschema Cell
   [(s/one s/Num "row") (s/one s/Num "col")
@@ -30,7 +31,7 @@
 
 
 (s/defschema Row
-  {(s/optional-key :id) s/Str
+  {(s/optional-key :id)       s/Str
    (s/optional-key :data-set) #{Cell}})
 
 
@@ -66,7 +67,7 @@
   (s/validate FancySeq ["test"])
   (s/validate FancySeq ["test" :k])
   (s/validate FancySeq ["test" :k 1 2 3])
-  (s/validate FancySeq ["test" 1 2 3]) ; why doesn't this work? :k is supposed to be optional
+  (s/validate FancySeq ["test" 1 2 3])                      ; why doesn't this work? :k is supposed to be optional
 
 
   (def tuple [(s/one s/Num "row") (s/one s/Num "col")
@@ -81,46 +82,37 @@
   (s/validate Row {:id       "alpha"
                    :data-set #{[0 0 "x" 0]}})
   (s/validate Row {:id       "alpha"
-                   :data-set #{[0 0 "x" 0][0 0 "x" 1][0 0 "x" 2][0 0 "x" 3]}})
-  (s/validate Row {:id       "alpha"})
+                   :data-set #{[0 0 "x" 0] [0 0 "x" 1] [0 0 "x" 2] [0 0 "x" 3]}})
+  (s/validate Row {:id "alpha"})
   (s/validate Row {:data-set #{[0 0 "x" 0]}})
 
 
   ; Coll schema
   (s/validate Coll [{:id       "alpha"
-                     :data-set #{[0 0 "x" 0][0 0 "x" 1][0 0 "x" 2][0 0 "x" 3]}}])
+                     :data-set #{[0 0 "x" 0] [0 0 "x" 1] [0 0 "x" 2] [0 0 "x" 3]}}])
   (s/validate Coll [{:id       "alpha"
-                     :data-set #{[0 0 "x" 0][0 0 "x" 1][0 0 "x" 2][0 0 "x" 3]}}
+                     :data-set #{[0 0 "x" 0] [0 0 "x" 1] [0 0 "x" 2] [0 0 "x" 3]}}
                     {:id       "bravo"
-                     :data-set #{[9 9 "x" 0][9 9 "x" 1][9 9 "x" 2][9 9 "x" 3]}}])
+                     :data-set #{[9 9 "x" 0] [9 9 "x" 1] [9 9 "x" 2] [9 9 "x" 3]}}])
   (s/validate Coll data)
 
   ())
 
 
-; 2. try our the "queries"
+
+; 2. start working up the correct query for the actual kTable data (see data2)
 (comment
-  (get-aois {})
+  (do
+    (require '[com.stuartsierra.component.repl :refer [system]])
 
-  (get-aoi {} "alpha")
+    (def topology (:topology system))
+    (def id "alpha"))
 
-
-  ; what happens if we don't have the id?
-  (get-aoi () "delta")
-  (s/validate Row (get-aoi {} "delta"))
-
-  ())
-
-; 3. start working up the correct query for the actual kTable data (see data2)
-(comment
-  (require '[com.stuartsierra.component.repl :refer [system]])
-
-  (def topology (:topology system))
-
-  (->> "aoi-state"
-    (topo/get-all-values topology)
+  (->> (:out-topic topology)
+    (topo/get-all-aois (:topology topology))
     (map (fn [[k v]]
-           {(:aoi k) v}))
-    (into {}))
+           {:id (:aoi k) :data-set v}))
+    (into []))
+
 
   ())

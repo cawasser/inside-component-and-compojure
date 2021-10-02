@@ -108,16 +108,34 @@
 
 ; send some events to "aois" topic using Kafka
 (comment
-  (defn produce-one
-    ([topic k v]
-     (with-open [producer (jc/producer app-config (topic-config topic))]
-       @(jc/produce! producer (topic-config topic) k v))))
+  (do
+    (require '[com.stuartsierra.component.repl :refer [reset set-init start stop system]])
+
+    (defn produce-one
+      ([topic k v]
+       (with-open [producer (jc/producer app-config (topic-config topic))]
+         @(jc/produce! producer (topic-config topic) k v)))))
 
 
   (produce-one "aois"
     {:aoi "alpha"}
     {:event-type :aoi-added
-     :aoi-needs  #{[7 7 "hidef" 0]}
+     :aoi-needs  #{[7 7 "x" 0]}
      :aoi        "alpha"})
+
+  (produce-one "aois"
+    {:aoi "bravo"}
+    {:event-type :aoi-added
+     :aoi-needs  #{[9 9 "ka" 0][9 9 "ka" 2][9 9 "ka" 1]}
+     :aoi        "alpha"})
+
+  (produce-one "aois"
+    {:aoi "alpha"}
+    {:event-type :aoi-added
+     :aoi-needs  #{[7 7 "x" 0][7 7 "x" 1][7 7 "x" 2][7 7 "x" 3]}
+     :aoi        "alpha"})
+
+
+  (:topology system)
 
   ())
