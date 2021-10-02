@@ -12,17 +12,21 @@
 
 
 (defn get-aois [topology]
-  (->> (:out-topic topology)
-    (topo/get-all-aois (:topology topology))
-    (map (fn [[k v]]
-           {:id (:aoi k) :data-set v}))
-    (into [])))
+  (if-let [ret (->> (:out-topic topology)
+                 (topo/get-all-aois (:topology topology))
+                 (map (fn [[k v]]
+                        {:id (:aoi k) :data-set v}))
+                 (into []))]
+    ret
+    {}))
 
 
 (defn get-aoi [topology id]
-  {:id id :data-set (topo/get-one-aoi (:topology topology)
+  (if-let [data-set (topo/get-one-aoi (:topology topology)
                       (:out-topic topology)
-                      id)})
+                      id)]
+    {:id id :data-set data-set}
+    {}))
 
 
 (s/defschema Cell

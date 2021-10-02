@@ -12,6 +12,10 @@
             [com.stuartsierra.component :as component]))
 
 
+; TODO: 1. get correct dependencies for Jackdaw 0.8.0
+
+; TODO: 2. preserve "last state" on restarts
+
 (def app-config {"bootstrap.servers"                     "localhost:9092"
                  StreamsConfig/APPLICATION_ID_CONFIG     "aoi-state"
                  StreamsConfig/COMMIT_INTERVAL_MS_CONFIG 500
