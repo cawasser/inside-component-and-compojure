@@ -12,7 +12,6 @@
             [com.stuartsierra.component :as component]))
 
 
-; TODO: 1. get correct dependencies for Jackdaw 0.8.0
 ; TODO: 2. cross-request data from other members of the consumer-group (see https://docs.confluent.io/platform/current/streams/developer-guide/interactive-queries.html#querying-remote-state-stores-for-the-entire-app)
 ; TODO: 3. preserve "last state" on restarts
 
@@ -138,7 +137,11 @@
     {:event-type :aoi-added
      :aoi-needs  #{[7 7 "x" 0][7 7 "x" 1][7 7 "x" 2][7 7 "x" 3]}
      :aoi        "alpha"})
-
+  (produce-one "aois"
+    {:aoi "charlie"}
+    {:event-type :aoi-added
+     :aoi-needs  #{[7 7 "ka" 4][7 7 "ka" 5][7 7 "ka" 6][7 7 "ka" 7]}
+     :aoi        "charlie"})
 
   (:topology system)
 
