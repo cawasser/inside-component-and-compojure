@@ -13,8 +13,8 @@
 
 
 ; TODO: 1. get correct dependencies for Jackdaw 0.8.0
-
-; TODO: 2. preserve "last state" on restarts
+; TODO: 2. cross-request data from other members of the consumer-group (see https://docs.confluent.io/platform/current/streams/developer-guide/interactive-queries.html#querying-remote-state-stores-for-the-entire-app)
+; TODO: 3. preserve "last state" on restarts
 
 (def app-config {"bootstrap.servers"                     "localhost:9092"
                  StreamsConfig/APPLICATION_ID_CONFIG     "aoi-state"
