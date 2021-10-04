@@ -5,6 +5,14 @@
             [lunch-and-learn.data-service :as topo])
   (:gen-class))
 
+;; start kafka using one of the following:
+
+; On Linux or Windows(?)
+; docker run -d --rm --net=host landoop/fast-data-dev
+
+; On Mac
+; docker run -d --rm -p 2181:2181 -p 3030:3030 -p 8081-8083:8081-8083 -p 9581-9585:9581-9585 -p 9092:9092 -e ADV_HOST=localhost landoop/fast-data-dev:latest
+
 
 ; working with Component and Compojure at the REPL
 
@@ -12,6 +20,14 @@
   (component/system-map
     :server (component/using (server/map->HTTPServer {:port 5050}) [:topology])
     :topology (topo/new-kafka-topology "aois" "aoi-state")))
+
+
+(defn -main
+  "Starts the Kafka Topology and the REST-ful endpoint webserver, hooks them together and starts processing
+  AoI events into 'aoi-state'"
+  [& args]
+  (set-init new-system)
+  (start))
 
 
 ; run the server from the REPL
@@ -159,16 +175,3 @@
 
 
 
-
-
-
-
-(defn greet
-  "Callable entry point to the application."
-  [data]
-  (println (str "Hello, " (or (:name data) "World") "!")))
-
-(defn -main
-  "I don't do a whole lot ... yet."
-  [& args]
-  (greet {:name (first args)}))
