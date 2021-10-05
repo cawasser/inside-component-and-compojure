@@ -2,7 +2,6 @@
   (:require [compojure.api.sweet :as sw]
             [ring.util.http-response :as resp]
             [schema.core :as s]
-            [clojure.tools.logging :as log]
             [lunch-and-learn.data-service :as topo]))
 
 
@@ -12,13 +11,13 @@
 
 
 (defn get-aois [topology]
-  (if-let [ret (->> (:out-topic topology)
-                 (topo/get-all-aois (:topology topology))
-                 (map (fn [[k v]]
-                        {:id (:aoi k) :data-set v}))
-                 (into []))]
+  (if-let [ret (topo/get-all-aois
+                 (:topology topology)
+                 (:host (:config topology))
+                 (:port (:config topology))
+                 (:out-topic topology))]
     ret
-    {}))
+    []))
 
 
 (defn get-aoi [topology id]
@@ -119,4 +118,37 @@
     (into []))
 
 
+  ())
+
+
+; 3. flex the query handlers
+(comment
+  (do
+    (require '[com.stuartsierra.component.repl :refer [system]])
+    (def topology (:topology system)))
+
+  (get-aois topology)
+
+  (topo/get-all-aois
+    (:topology topology)
+    (:host (:config topology))
+    (:port (:config topology))
+    (:out-topic topology))
+
+  (->> (:out-topic topology)
+    (topo/get-all-aois (:topology topology)
+      (:host (:config topology)) (:port (:config topology)))
+    (map (fn [[k v]]
+           {:id (:aoi k) :data-set v}))
+    (into []))
+
+
+  (if-let [ret (->> (:out-topic topology)
+                 (topo/get-all-aois (:topology topology)
+                   (:host (:config topology)) (:port (:config topology)))
+                 (map (fn [[k v]]
+                        {:id (:aoi k) :data-set v}))
+                 (into []))]
+    ret
+    [])
   ())

@@ -16,6 +16,8 @@
 
 ; working with Component and Compojure at the REPL
 
+; TODO: 1. Multiple partitions (test & debug)
+
 ; TODO: 5. add an nRepl we can remotely connect to
 
 (defn new-system [args _]
@@ -42,9 +44,11 @@
   ; start a server without repl capability (we should add nRepl using component...)
   ; THIS instance will control the single partition...
   (-main "localhost" 5051)
+  (-main "localhost" 5055)
 
   ; init the system so we can start and stop it from the REPL
   ;    while *this* instance has no data in local-store, and so must "cross-request"
+  (set-init (partial new-system {:host "localhost" :port 5051}))
   (set-init (partial new-system {:host "localhost" :port 5050}))
   (start)
 

@@ -8,7 +8,6 @@
   (:require [jackdaw.streams :as j]
             [jackdaw.client :as jc]
             [jackdaw.serdes.edn :as jse]
-            [clojure.tools.logging :as log]
             [com.stuartsierra.component :as component]
             [clj-http.client :as client]))
 
@@ -34,21 +33,51 @@
    :value-serde        (jse/serde)})
 
 
+(defn get-one-aoi-local [streams store aoi]
+  (try
+    (-> streams
+      (.store store (QueryableStoreTypes/keyValueStore))
+      (.get {:aoi aoi}))
+
+    (catch Exception _ {})))
+
+
+(comment
+  {{:aoi "alpha"} #{[7 7 "x" 0]}}
+
+  {:id "alpha" :data-set #{[7 7 "x" 0]}}
+
+  ())
+
+(defn get-all-aois-local [streams store]
+  (try
+    (let [s (-> streams
+              (.store store (QueryableStoreTypes/keyValueStore)))
+          k (.all s)]
+      (into []
+        (map (fn [x]
+               {:id (:aoi (.key x)) :data-set (.value x)})
+          (iterator-seq k))))
+    (catch Exception _ [])))
+
+
+(defn get-all-aois [stream host port store]
+  (let [meta-vec (-> stream
+                   (.allMetadataForStore store))]
+    (-> (map #(if (not (and (= host (-> % .host)) (= port (-> % .port))))
+                (-> (client/get
+                      (str "http://" (-> % .host) ":" (-> % .port) "/aois")
+                      {:throw-exceptions false
+                       :accept           :edn})
+                  :body
+                  clojure.edn/read-string)
+                (get-all-aois-local stream store))
+          meta-vec)
+      first)))
+
+
 (defn get-one-aoi [streams store aoi]
-  (-> streams
-    (.store store (QueryableStoreTypes/keyValueStore))
-    (.get {:aoi aoi})))
-
-
-(defn get-all-aois [streams store]
-  (let [s (-> streams
-            (.store store (QueryableStoreTypes/keyValueStore)))
-        k (.all s)]
-    (into {}
-      (map (fn [x]
-             {(.key x) (.value x)})
-        (iterator-seq k)))))
-
+  (get-one-aoi-local streams store aoi))
 
 
 (defn pipeline [builder in-topic out-topic]
@@ -139,10 +168,10 @@
          @(jc/produce! producer (topic-config topic) k v)))))
 
 
-  (get-one-aoi (:topology (:topology system))
-    (:out-topic (:topology system)) "alpha")
   (get-all-aois (:topology (:topology system))
-    (:out-topic (:topology system)))
+    (:out-topic (:topology system))
+    (:host (:topology system))
+    (:post (:topology system)))
 
   (produce-one "aois"
     {:aoi "alpha"}
@@ -172,38 +201,107 @@
   ())
 
 
-; learn how to use kafka streams metadata
+; fix the get-aois-local (so it returns schema-valid resutls
 (comment
-
   (do
     (require '[com.stuartsierra.component.repl :refer [system]])
 
     (def streams (:topology (:topology system)))
-    (def store (:out-topic (:topology system))))
+    (def store (:out-topic (:topology system)))
+    (def aoi {:aoi "alpha"})
 
+    (def s (-> streams
+             (.store store (QueryableStoreTypes/keyValueStore))))
+    (def k (.all s)))
+
+  (let [s (-> streams
+            (.store store (QueryableStoreTypes/keyValueStore)))
+        k (.all s)]
+    (into []
+      (map (fn [x]
+             {:id (:aoi (.key x)) :data-set (.value x)})
+        (iterator-seq k))))
+
+  (get-all-aois-local streams store)
+
+  ())
+
+; learn how to use kafka streams metadata (get all the aois)
+(comment
+  (do
+    (require '[com.stuartsierra.component.repl :refer [system]])
+
+    (def stream (:topology (:topology system)))
+    (def store (:out-topic (:topology system)))
+    (def host (:host (:config (:topology system))))
+    (def port (:port (:config (:topology system)))))
+
+  (get-all-aois stream host port store)
+
+  ; get any aois that we "host" locally
+  (def locals (get-all-aois-local
+                (:topology (:topology system))
+                (:out-topic (:topology system))))
 
   (def meta-vec (-> (:topology (:topology system))
                   (.allMetadataForStore (:out-topic (:topology system)))))
   (first meta-vec)
   (-> meta-vec first .host)
   (-> meta-vec first .port)
+  (:host (:config (:topology system)))
+  (:port (:config (:topology system)))
 
-  ; get all the aois
-  (let [meta-vec (-> (:topology (:topology system))
-                   (.allMetadataForStore (:out-topic (:topology system))))]
-    (map #(-> (client/get
-                (str "http://" (-> % .host) ":" (-> % .port) "/aois")
-                {:throw-exceptions false
-                 :accept           :edn})
-            :body)
-      meta-vec))
+  ; call the remote system and get its data
+  (-> (client/get
+        (str "http://" (-> meta-vec first .host) ":" (-> meta-vec first .port) "/aois")
+        {:throw-exceptions false
+         :accept           :edn})
+    :body
+    clojure.edn/read-string)
 
-  (let [s (-> streams
-            (.store store (QueryableStoreTypes/keyValueStore)))
-        k (.all s)]
-    (into {}
-      (map (fn [x]
-             {(.key x) (.value x)})
-        (iterator-seq k))))
+  ; what do we do is WE (our config) is provided? DON'T CALL! (infinite loop)
+  (let [topo     (:topology system)
+        meta-vec (-> (:topology topo)
+                   (.allMetadataForStore (:out-topic topo)))
+        thisHost (:host (:config topo))
+        thisPort (:port (:config topo))]
+    (-> (map #(if (not (and (= thisHost (-> % .host)) (= thisPort (-> % .port))))
+                (-> (client/get
+                      (str "http://" (-> % .host) ":" (-> % .port) "/aois")
+                      {:throw-exceptions false
+                       :accept           :edn})
+                  :body
+                  clojure.edn/read-string)
+                (get-all-aois-local
+                  (:topology (:topology system))
+                  (:out-topic (:topology system))))
+          meta-vec)
+      first))
+
+  ())
+
+; now we can work out the "get-one-aoi" call logic
+(comment
+  (do
+    (require '[com.stuartsierra.component.repl :refer [system]])
+
+    (def streams (:topology (:topology system)))
+    (def store (:out-topic (:topology system)))
+    (def aoi {:aoi "alpha"}))
+
+  (get-one-aoi-local
+    (:topology (:topology system))
+    (:out-topic (:topology system)) "alpha")
+
+
+  (.metadataForKey
+    streams
+    (:out-topic (:topology system))
+    aoi
+    (jse/serde))
+
+  (def meta (-> (:topology (:topology system))
+              (.metadataForKey (:out-topic (:topology system)) aoi)))
+
 
   ())
