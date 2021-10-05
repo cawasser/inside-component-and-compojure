@@ -16,25 +16,31 @@
 
 ; working with Component and Compojure at the REPL
 
-(defn new-system [_]
+; TODO: 5. add an nRepl we can remotely connect to
+
+(defn new-system [port _]
   (component/system-map
-    :server (component/using (server/map->HTTPServer {:port 5050}) [:topology])
+    :server (component/using (server/map->HTTPServer {:port port}) [:topology])
     :topology (topo/new-kafka-topology "aois" "aoi-state")))
 
 
 (defn -main
   "Starts the Kafka Topology and the REST-ful endpoint webserver, hooks them together and starts processing
-  AoI events into 'aoi-state'"
+  AoI events into 'aoi-state'
+
+  Assumes the PORT number to use is provided as the only CLI parameter"
   [& args]
-  (set-init new-system)
-  (start))
+  (component/start (new-system args {})))
 
 
 ; run the server from the REPL
 (comment
-  ; init the system so we can start and stop it from the REPL
-  (set-init new-system)
 
+  ; start a server without repl capability (we should add this using component...)
+  (-main 5051 {})
+
+  ; init the system so we can start and stop it from the REPL
+  (set-init (partial new-system 5050))
   (start)
 
   (keys system)

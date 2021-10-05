@@ -9,14 +9,17 @@
             [jackdaw.client :as jc]
             [jackdaw.serdes.edn :as jse]
             [clojure.tools.logging :as log]
-            [com.stuartsierra.component :as component]))
+            [com.stuartsierra.component :as component]
+            [clj-http.client :as client]))
 
 
 ; TODO: 2. cross-request data from other members of the consumer-group (see https://docs.confluent.io/platform/current/streams/developer-guide/interactive-queries.html#querying-remote-state-stores-for-the-entire-app)
-; TODO: 3. preserve "last state" on restarts
+; TODO: 3. refactor so we can start multiple instances, each at a different port AND Kafka 'StreamsConfig/STATE_DIR_CONFIG'
+; TODO: 4. turn into a Polylith "base" so we can re-use it
 
 (def app-config {"bootstrap.servers"                     "localhost:9092"
                  StreamsConfig/APPLICATION_ID_CONFIG     "aoi-state"
+                 StreamsConfig/APPLICATION_SERVER_CONFIG "localhost:5050"
                  StreamsConfig/COMMIT_INTERVAL_MS_CONFIG 500
                  ConsumerConfig/AUTO_OFFSET_RESET_CONFIG "latest"
                  "acks"                                  "all"
@@ -26,7 +29,7 @@
 
 (defn topic-config [name]
   {:topic-name         name
-   :partition-count    1
+   :partition-count    2
    :replication-factor 1
    :key-serde          (jse/serde)
    :value-serde        (jse/serde)})
@@ -120,6 +123,11 @@
          @(jc/produce! producer (topic-config topic) k v)))))
 
 
+  (get-one-aoi (:topology (:topology system))
+    (:out-topic (:topology system)) "alpha")
+  (get-all-aois (:topology (:topology system))
+    (:out-topic (:topology system)))
+
   (produce-one "aois"
     {:aoi "alpha"}
     {:event-type :aoi-added
@@ -130,7 +138,7 @@
     {:aoi "bravo"}
     {:event-type :aoi-added
      :aoi-needs  #{[9 9 "ka" 0][9 9 "ka" 2][9 9 "ka" 1]}
-     :aoi        "alpha"})
+     :aoi        "bravo"})
 
   (produce-one "aois"
     {:aoi "alpha"}
@@ -144,5 +152,41 @@
      :aoi        "charlie"})
 
   (:topology system)
+
+  ())
+
+
+; learn how to use kafka streams metadata
+(comment
+
+  (do
+    (require '[com.stuartsierra.component.repl :refer [system]])
+
+    (def streams (:topology (:topology system)))
+    (def store (:out-topic (:topology system))))
+
+
+  (def meta-vec (-> (:topology (:topology system))
+                  (.allMetadataForStore (:out-topic (:topology system)))))
+  (first meta-vec)
+  (-> meta-vec first .host)
+
+  ; get all the aois
+  (let [meta-vec (-> (:topology (:topology system))
+                   (.allMetadataForStore (:out-topic (:topology system))))]
+    (map #(-> (client/get
+                (str "http://" (-> % .host) ":" (-> % .port) "/aois")
+                {:throw-exceptions false
+                 :accept           :edn})
+            :body)
+      meta-vec))
+
+  (let [s (-> streams
+            (.store store (QueryableStoreTypes/keyValueStore)))
+        k (.all s)]
+    (into {}
+      (map (fn [x]
+             {(.key x) (.value x)})
+        (iterator-seq k))))
 
   ())

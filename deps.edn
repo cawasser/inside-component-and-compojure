@@ -4,6 +4,7 @@
              org.apache.kafka/kafka-clients            {:mvn/version "2.8.0"}
              org.apache.kafka/kafka-streams            {:mvn/version "2.8.0"}
              org.apache.kafka/kafka-streams-test-utils {:mvn/version "2.8.0"}
+             clj-http/clj-http                         {:mvn/version "3.12.3"}
              com.stuartsierra/component                {:mvn/version "1.0.0"}
              com.stuartsierra/component.repl           {:mvn/version "0.2.0"}
              compojure/compojure                       {:mvn/version "1.6.2"}
