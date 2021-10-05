@@ -18,10 +18,13 @@
 
 ; TODO: 5. add an nRepl we can remotely connect to
 
-(defn new-system [port _]
-  (component/system-map
-    :server (component/using (server/map->HTTPServer {:port port}) [:topology])
-    :topology (topo/new-kafka-topology "aois" "aoi-state")))
+(defn new-system [args _]
+  (println "new-system:" args)
+  (let [topo-config (merge args {:in-topic "aois" :out-topic "aoi-state"})]
+    (println "topo-config:" topo-config)
+    (component/system-map
+      :server (component/using (server/map->HTTPServer {:host (:host args) :port (:port args)}) [:topology])
+      :topology (topo/map->KafkaTopology {:config topo-config}))))
 
 
 (defn -main
@@ -30,17 +33,19 @@
 
   Assumes the PORT number to use is provided as the only CLI parameter"
   [& args]
-  (component/start (new-system args {})))
+  (component/start (new-system (zipmap [:host :port] args) {})))
 
 
 ; run the server from the REPL
 (comment
 
-  ; start a server without repl capability (we should add this using component...)
-  (-main 5051 {})
+  ; start a server without repl capability (we should add nRepl using component...)
+  ; THIS instance will control the single partition...
+  (-main "localhost" 5051)
 
   ; init the system so we can start and stop it from the REPL
-  (set-init (partial new-system 5050))
+  ;    while *this* instance has no data in local-store, and so must "cross-request"
+  (set-init (partial new-system {:host "localhost" :port 5050}))
   (start)
 
   (keys system)
@@ -50,6 +55,23 @@
   (stop)
 
   (reset)
+
+
+
+  ())
+
+
+; how do variadics (args) work?
+(comment
+  (do
+    (def last-args (atom {}))
+    (defn var-fn [& args]
+     (reset! last-args (zipmap [:host :port] args))))
+
+
+  (var-fn "localhost" 5050)
+  @last-args
+  ; so it's a seq
 
 
 
@@ -162,7 +184,6 @@
   (.stop @server)
 
   ())
-
 
 
 ; can we use add-libs in THIS project?

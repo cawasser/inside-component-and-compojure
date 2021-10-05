@@ -19,7 +19,6 @@
 
 (def app-config {"bootstrap.servers"                     "localhost:9092"
                  StreamsConfig/APPLICATION_ID_CONFIG     "aoi-state"
-                 StreamsConfig/APPLICATION_SERVER_CONFIG "localhost:5050"
                  StreamsConfig/COMMIT_INTERVAL_MS_CONFIG 500
                  ConsumerConfig/AUTO_OFFSET_RESET_CONFIG "latest"
                  "acks"                                  "all"
@@ -70,23 +69,27 @@
   builder)
 
 
-(defn start! [in-topic out-topic]
-  (let [streams-builder (j/streams-builder)
-        topo            (pipeline streams-builder in-topic out-topic)
+(defn start! [config]
+  (println "start!:" config)
+  (let [full-config     (merge app-config {StreamsConfig/STATE_DIR_CONFIG          (str "./tmp/" (:host config) "/" (:port config))
+                                           StreamsConfig/APPLICATION_SERVER_CONFIG (str (:host config) ":" (:port config))})
+        _               (println "full-config:" full-config)
+        streams-builder (j/streams-builder)
+        topo            (pipeline streams-builder (:in-topic config) (:out-topic config))
         _               (println (-> topo j/streams-builder* .build .describe .toString))
-        kafka-streams   (j/kafka-streams topo app-config)]
+        kafka-streams   (j/kafka-streams topo full-config)]
     (j/start kafka-streams)
     kafka-streams))
 
 
-(defrecord KafkaTopology [in-topic out-topic topology]
+(defrecord KafkaTopology [config topology]
   component/Lifecycle
   (start [component]
-
-    (let [topology (start! in-topic out-topic)]
+    (println "KafkaTopology/start:" config topology component)
+    (let [topology (start! config)]
       (assoc component :topology topology
-        :in-topic in-topic
-        :out-topic out-topic)))
+        :in-topic (:in-topic config)
+        :out-topic (:out-topic config))))
 
   (stop [component]
     (j/close topology)
@@ -94,20 +97,33 @@
 
 
 (defn new-kafka-topology
-  [in-topic out-topic]
-  (map->KafkaTopology {:in-topic in-topic
-                       :out-topic out-topic}))
+  [config]
+  (println "new-kafka-topology:" config)
+  (map->KafkaTopology config))
 
 
 ; debug starting the Kafka Stream topology
 (comment
-  (def streams-builder (j/streams-builder))
-  (def topo            (pipeline streams-builder "aois" "aoi-state"))
-  (println (-> topo j/streams-builder* .build .describe .toString))
-  (def kafka-streams   (j/kafka-streams topo app-config))
+  (do
+    (def config {:host "localhost" :port 5050 :in-topic "aois" :out-topic "aoi-state"})
+    (def full-config (merge app-config {StreamsConfig/STATE_DIR_CONFIG          (str "./tmp/" (:host config) "/" (:port config))
+                                        StreamsConfig/APPLICATION_SERVER_CONFIG (str (:host config) ":" (:port config))}))
+    (def streams-builder (j/streams-builder))
+    (def topo (pipeline streams-builder (:in-topic config) (:out-topic config)))
+    (println (-> topo j/streams-builder* .build .describe .toString))
+    (def kafka-streams (j/kafka-streams topo app-config)))
+
+
+  (map->KafkaTopology {:config config})
 
   (j/start kafka-streams)
 
+  (j/close kafka-streams)
+
+  (get-one-aoi kafka-streams (:out-topic config) "alpha")
+  (get-one-aoi kafka-streams (:out-topic config) "bravo")
+  (get-one-aoi kafka-streams (:out-topic config) "delta")
+  (get-all-aois kafka-streams (:out-topic config))
 
   ())
 
@@ -137,18 +153,18 @@
   (produce-one "aois"
     {:aoi "bravo"}
     {:event-type :aoi-added
-     :aoi-needs  #{[9 9 "ka" 0][9 9 "ka" 2][9 9 "ka" 1]}
+     :aoi-needs  #{[9 9 "ka" 0] [9 9 "ka" 2] [9 9 "ka" 1]}
      :aoi        "bravo"})
 
   (produce-one "aois"
     {:aoi "alpha"}
     {:event-type :aoi-added
-     :aoi-needs  #{[7 7 "x" 0][7 7 "x" 1][7 7 "x" 2][7 7 "x" 3]}
+     :aoi-needs  #{[7 7 "x" 0] [7 7 "x" 1] [7 7 "x" 2] [7 7 "x" 3]}
      :aoi        "alpha"})
   (produce-one "aois"
     {:aoi "charlie"}
     {:event-type :aoi-added
-     :aoi-needs  #{[7 7 "ka" 4][7 7 "ka" 5][7 7 "ka" 6][7 7 "ka" 7]}
+     :aoi-needs  #{[7 7 "ka" 4] [7 7 "ka" 5] [7 7 "ka" 6] [7 7 "ka" 7]}
      :aoi        "charlie"})
 
   (:topology system)
@@ -170,6 +186,7 @@
                   (.allMetadataForStore (:out-topic (:topology system)))))
   (first meta-vec)
   (-> meta-vec first .host)
+  (-> meta-vec first .port)
 
   ; get all the aois
   (let [meta-vec (-> (:topology (:topology system))
