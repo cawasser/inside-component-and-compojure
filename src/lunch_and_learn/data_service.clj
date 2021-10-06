@@ -206,7 +206,7 @@
   ())
 
 
-; fix the get-aois-local (so it returns schema-valid resutls
+; fix the get-aois-local (so it returns schema-valid results
 (comment
   (do
     (require '[com.stuartsierra.component.repl :refer [system]])
