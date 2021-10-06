@@ -21,9 +21,7 @@
 ; TODO: 5. add an nRepl we can remotely connect to
 
 (defn new-system [args _]
-  (println "new-system:" args)
   (let [topo-config (merge args {:in-topic "aois" :out-topic "aoi-state"})]
-    (println "topo-config:" topo-config)
     (component/system-map
       :server (component/using (server/map->HTTPServer {:host (:host args) :port (:port args)}) [:topology])
       :topology (topo/map->KafkaTopology {:config topo-config}))))

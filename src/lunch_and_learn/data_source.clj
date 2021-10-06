@@ -21,11 +21,12 @@
 
 
 (defn get-aoi [topology id]
-  (if-let [data-set (topo/get-one-aoi (:topology topology)
-                      (:out-topic topology)
-                      id)]
-    {:id id :data-set data-set}
-    {}))
+  (topo/get-one-aoi
+    (:topology topology)
+    (:out-topic topology)
+    (:host (:config topology))
+    (:port (:config topology))
+    id))
 
 
 (s/defschema Cell
@@ -127,6 +128,7 @@
     (require '[com.stuartsierra.component.repl :refer [system]])
     (def topology (:topology system)))
 
+  ; get all the aois
   (get-aois topology)
 
   (topo/get-all-aois
@@ -145,10 +147,13 @@
 
   (if-let [ret (->> (:out-topic topology)
                  (topo/get-all-aois (:topology topology)
-                   (:host (:config topology)) (:port (:config topology)))
-                 (map (fn [[k v]]
-                        {:id (:aoi k) :data-set v}))
-                 (into []))]
+                   (:host (:config topology)) (:port (:config topology))))]
     ret
     [])
+
+
+  ; get just one aoi
+  (get-aoi topology "alpha")
+
+
   ())

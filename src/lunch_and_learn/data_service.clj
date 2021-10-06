@@ -12,10 +12,6 @@
             [clj-http.client :as client]))
 
 
-; TODO: 2. cross-request data from other members of the consumer-group (see https://docs.confluent.io/platform/current/streams/developer-guide/interactive-queries.html#querying-remote-state-stores-for-the-entire-app)
-; TODO: 3. refactor so we can start multiple instances, each at a different port AND Kafka 'StreamsConfig/STATE_DIR_CONFIG'
-; TODO: 4. turn into a Polylith "base" so we can re-use it
-
 (def app-config {"bootstrap.servers"                     "localhost:9092"
                  StreamsConfig/APPLICATION_ID_CONFIG     "aoi-state"
                  StreamsConfig/COMMIT_INTERVAL_MS_CONFIG 500
@@ -35,19 +31,13 @@
 
 (defn get-one-aoi-local [streams store aoi]
   (try
-    (-> streams
-      (.store store (QueryableStoreTypes/keyValueStore))
-      (.get {:aoi aoi}))
-
+    (if-let [ret (-> streams
+                   (.store store (QueryableStoreTypes/keyValueStore))
+                   (.get {:aoi aoi}))]
+      {:id aoi :data-set ret}
+      {})
     (catch Exception _ {})))
 
-
-(comment
-  {{:aoi "alpha"} #{[7 7 "x" 0]}}
-
-  {:id "alpha" :data-set #{[7 7 "x" 0]}}
-
-  ())
 
 (defn get-all-aois-local [streams store]
   (try
@@ -76,8 +66,24 @@
       first)))
 
 
-(defn get-one-aoi [streams store aoi]
-  (get-one-aoi-local streams store aoi))
+(defn get-one-aoi [streams store host port aoi]
+  (let [meta-key    (.queryMetadataForKey
+                      streams
+                      store
+                      {:aoi aoi}
+                      (jse/serializer))
+        remote-host (-> meta-key .activeHost .host)
+        remote-port (-> meta-key .activeHost .port)]
+    (if (not (and
+               (= host remote-host)
+               (= port remote-port)))
+      (-> (client/get
+            (str "http://" remote-host ":" remote-port "/aoi/" aoi)
+            {:throw-exceptions false
+             :accept           :edn})
+        :body
+        clojure.edn/read-string)
+      (get-one-aoi-local streams store aoi))))
 
 
 (defn pipeline [builder in-topic out-topic]
@@ -99,7 +105,6 @@
 
 
 (defn start! [config]
-  (println "start!:" config)
   (let [full-config     (merge app-config {StreamsConfig/STATE_DIR_CONFIG          (str "./tmp/" (:host config) "/" (:port config))
                                            StreamsConfig/APPLICATION_SERVER_CONFIG (str (:host config) ":" (:port config))})
         _               (println "full-config:" full-config)
@@ -287,21 +292,37 @@
 
     (def streams (:topology (:topology system)))
     (def store (:out-topic (:topology system)))
-    (def aoi {:aoi "alpha"}))
+    (def aoi "alpha")
+    (def host (:host (:config (:topology system))))
+    (def port (:port (:config (:topology system)))))
 
   (get-one-aoi-local
     (:topology (:topology system))
     (:out-topic (:topology system)) "alpha")
 
 
-  (.metadataForKey
-    streams
-    (:out-topic (:topology system))
-    aoi
-    (jse/serde))
+  (def meta-key (.queryMetadataForKey
+                  (:topology (:topology system))
+                  (:out-topic (:topology system))
+                  aoi
+                  (jse/serializer)))
 
-  (def meta (-> (:topology (:topology system))
-              (.metadataForKey (:out-topic (:topology system)) aoi)))
+  (let [meta-key (.queryMetadataForKey
+                   (:topology (:topology system))
+                   (:out-topic (:topology system))
+                   {:aoi aoi}
+                   (jse/serializer))]
+    (if (not (and
+               (= host (-> meta-key .activeHost .host))
+               (= port (-> meta-key .activeHost .port))))
+      (-> (client/get
+            (str "http://" (-> meta-key .host) ":" (-> meta-key .port) "/aoi/" aoi)
+            {:throw-exceptions false
+             :accept           :edn})
+        :body
+        clojure.edn/read-string)
+      (get-one-aoi-local streams store aoi)))
+
 
 
   ())
