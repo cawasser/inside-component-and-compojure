@@ -19,6 +19,12 @@
     ret
     []))
 
+(defn get-aois-local [topology]
+  (if-let [ret (topo/get-all-aois-local
+                 (:topology topology)
+                 (:out-topic topology))]
+    ret
+    []))
 
 (defn get-aoi [topology id]
   (topo/get-one-aoi
@@ -48,6 +54,11 @@
      :return Coll
      :summary "get all the aois"
      (resp/ok (get-aois topology)))
+
+   (sw/GET "/aois-local" []
+     :return Coll
+     :summary "get all the local aois"
+     (resp/ok (get-aois-local topology)))
 
    (sw/GET "/aoi/:id" []
      :path-params [id :- s/Str]

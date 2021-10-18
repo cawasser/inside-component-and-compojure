@@ -57,7 +57,7 @@
     (->>
       (mapcat #(if (not (and (= host (-> % .host)) (= port (-> % .port))))
                  (-> (client/get
-                       (str "http://" (-> % .host) ":" (-> % .port) "/aois")
+                       (str "http://" (-> % .host) ":" (-> % .port) "/aois-local")
                        {:throw-exceptions false
                         :accept           :edn})
                    :body
@@ -373,18 +373,30 @@
     (def host (:host (:config (:topology system))))
     (def port (:port (:config (:topology system)))))
 
-  (map #(if (not (and (= thisHost (-> % .host)) (= thisPort (-> % .port))))
-          (do
-            (println "remote"))
-          (do
-            (println "local")))
+  (get-all-aois-local stream store)
 
+  (-> (client/get
+        (str "http://localhost:5050/aois-local")
+        {:throw-exceptions false
+         :accept           :edn})
+    :body
+    clojure.edn/read-string)
+
+  (-> (client/get
+        (str "http://localhost:5051/aois-local")
+        {:throw-exceptions false
+         :accept           :edn})
+    :body
+    clojure.edn/read-string)
+
+  (mapcat #(if (not (and (= host (-> % .host)) (= port (-> % .port))))
+             [:remote]
+             [:local])
     meta-vec)
-
 
   (->> (mapcat #(if (not (and (= host (-> % .host)) (= port (-> % .port))))
                   (-> (client/get
-                        (str "http://" (-> % .host) ":" (-> % .port) "/aois")
+                        (str "http://" (-> % .host) ":" (-> % .port) "/aois-local")
                         {:throw-exceptions false
                          :accept           :edn})
                     :body
@@ -392,5 +404,14 @@
                   (get-all-aois-local stream store))
          meta-vec)
     (into []))
+
+
+  (let [meta-vec (-> stream (.allMetadataForStore store))]
+    (->>
+      (mapcat #(if (not (and (= host (-> % .host)) (= port (-> % .port))))
+                 [:remote]
+                 [:local])
+        meta-vec)
+      (into [])))
 
   ())
