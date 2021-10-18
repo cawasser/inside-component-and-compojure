@@ -54,16 +54,17 @@
 (defn get-all-aois [stream host port store]
   (let [meta-vec (-> stream
                    (.allMetadataForStore store))]
-    (-> (map #(if (not (and (= host (-> % .host)) (= port (-> % .port))))
-                (-> (client/get
-                      (str "http://" (-> % .host) ":" (-> % .port) "/aois")
-                      {:throw-exceptions false
-                       :accept           :edn})
-                  :body
-                  clojure.edn/read-string)
-                (get-all-aois-local stream store))
-          meta-vec)
-      first)))
+    (->>
+      (mapcat #(if (not (and (= host (-> % .host)) (= port (-> % .port))))
+                 (-> (client/get
+                       (str "http://" (-> % .host) ":" (-> % .port) "/aois")
+                       {:throw-exceptions false
+                        :accept           :edn})
+                   :body
+                   clojure.edn/read-string)
+                 (get-all-aois-local stream store))
+        meta-vec)
+      (into []))))
 
 
 (defn get-one-aoi [streams store host port aoi]
@@ -165,6 +166,19 @@
 ; send some events to "aois" topic using Kafka
 (comment
   (do
+    (require '[jackdaw.admin :as ja])
+
+    ; pulled THIS code from https://github.com/DaveWM/kafka-streams-the-clojure-way
+    ;
+    ; we only need to do this ONCE, just to get the input event-streams built correctly.
+    ;
+    ; NOTE: I think we need to use the admin-client to get multiple partitions, it seems that just using jc/produce!
+    ;       ignores the :partition-count
+    ;
+    (def admin-client (ja/->AdminClient app-config))
+    (ja/create-topics! admin-client [(topic-config "aois") (topic-config "aoi-state")]))
+
+  (do
     (require '[com.stuartsierra.component.repl :refer [reset set-init start stop system]])
 
     (defn produce-one
@@ -258,30 +272,47 @@
 
   ; call the remote system and get its data
   (-> (client/get
+        (str "http://localhost:5051/aois")
+        {:throw-exceptions false
+         :accept           :edn})
+    :body
+    clojure.edn/read-string)
+  (-> (client/get
+        (str "http://localhost:5055/aois")
+        {:throw-exceptions false
+         :accept           :edn})
+    :body
+    clojure.edn/read-string)
+  (-> (client/get
         (str "http://" (-> meta-vec first .host) ":" (-> meta-vec first .port) "/aois")
         {:throw-exceptions false
          :accept           :edn})
     :body
     clojure.edn/read-string)
 
-  ; what do we do is WE (our config) is provided? DON'T CALL! (infinite loop)
+  ; what do we do if WE (our config) are provided? DON'T CALL! (infinite loop)
   (let [topo     (:topology system)
         meta-vec (-> (:topology topo)
                    (.allMetadataForStore (:out-topic topo)))
         thisHost (:host (:config topo))
         thisPort (:port (:config topo))]
-    (-> (map #(if (not (and (= thisHost (-> % .host)) (= thisPort (-> % .port))))
-                (-> (client/get
-                      (str "http://" (-> % .host) ":" (-> % .port) "/aois")
-                      {:throw-exceptions false
-                       :accept           :edn})
-                  :body
-                  clojure.edn/read-string)
-                (get-all-aois-local
-                  (:topology (:topology system))
-                  (:out-topic (:topology system))))
+    (-> (mapcat #(if (not (and (= thisHost (-> % .host)) (= thisPort (-> % .port))))
+                   (do
+                     (println "remote")
+                     (-> (client/get
+                           (str "http://" (-> % .host) ":" (-> % .port) "/aois")
+                           {:throw-exceptions false
+                            :accept           :edn})
+                       :body
+                       clojure.edn/read-string))
+                   (do
+                     (println "local")
+                     (get-all-aois-local
+                       (:topology (:topology system))
+                       (:out-topic (:topology system)))))
           meta-vec)
-      first))
+      (into [])))
+
 
   ())
 
@@ -324,5 +355,42 @@
       (get-one-aoi-local streams store aoi)))
 
 
+
+  ())
+
+; make sure we get ALL the remotes PLUS anything local
+(comment
+  (do
+    (require '[com.stuartsierra.component.repl :refer [system]])
+
+    (def topo (:topology system))
+    (def meta-vec (-> (:topology topo)
+                    (.allMetadataForStore (:out-topic topo))))
+    (def thisHost (:host (:config topo)))
+    (def thisPort (:port (:config topo)))
+    (def stream (:topology (:topology system)))
+    (def store (:out-topic (:topology system)))
+    (def host (:host (:config (:topology system))))
+    (def port (:port (:config (:topology system)))))
+
+  (map #(if (not (and (= thisHost (-> % .host)) (= thisPort (-> % .port))))
+          (do
+            (println "remote"))
+          (do
+            (println "local")))
+
+    meta-vec)
+
+
+  (->> (mapcat #(if (not (and (= host (-> % .host)) (= port (-> % .port))))
+                  (-> (client/get
+                        (str "http://" (-> % .host) ":" (-> % .port) "/aois")
+                        {:throw-exceptions false
+                         :accept           :edn})
+                    :body
+                    clojure.edn/read-string)
+                  (get-all-aois-local stream store))
+         meta-vec)
+    (into []))
 
   ())

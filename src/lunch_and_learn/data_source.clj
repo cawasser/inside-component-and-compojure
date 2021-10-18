@@ -137,12 +137,12 @@
     (:port (:config topology))
     (:out-topic topology))
 
-  (->> (:out-topic topology)
-    (topo/get-all-aois (:topology topology)
-      (:host (:config topology)) (:port (:config topology)))
-    (map (fn [[k v]]
-           {:id (:aoi k) :data-set v}))
-    (into []))
+  ;(->> (:out-topic topology)
+  ;  (topo/get-all-aois (:topology topology)
+  ;    (:host (:config topology)) (:port (:config topology)))
+  ;  (map (fn [[k v]]
+  ;         {:id (:aoi k) :data-set v}))
+  ;  (into []))
 
 
   (if-let [ret (->> (:out-topic topology)
@@ -154,6 +154,7 @@
 
   ; get just one aoi
   (get-aoi topology "alpha")
+  (get-aoi topology "bravo")
 
 
   ())

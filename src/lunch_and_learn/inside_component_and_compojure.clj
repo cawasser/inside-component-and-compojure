@@ -46,8 +46,8 @@
 
   ; init the system so we can start and stop it from the REPL
   ;    while *this* instance has no data in local-store, and so must "cross-request"
-  (set-init (partial new-system {:host "localhost" :port 5051}))
   (set-init (partial new-system {:host "localhost" :port 5050}))
+  (set-init (partial new-system {:host "localhost" :port 5051}))
   (start)
 
   (keys system)
