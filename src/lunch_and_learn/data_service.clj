@@ -155,10 +155,10 @@
 
   (j/close kafka-streams)
 
-  (get-one-aoi kafka-streams (:out-topic config) "alpha")
-  (get-one-aoi kafka-streams (:out-topic config) "bravo")
-  (get-one-aoi kafka-streams (:out-topic config) "delta")
-  (get-all-aois kafka-streams (:out-topic config))
+  (get-one-aoi kafka-streams (:out-topic config) "localhost" 5050 "alpha")
+  (get-one-aoi kafka-streams (:out-topic config) "localhost" 5050 "bravo")
+  (get-one-aoi kafka-streams (:out-topic config) "localhost" 5050 "delta")
+  (get-all-aois kafka-streams (:out-topic config "localhost" 5050))
 
   ())
 

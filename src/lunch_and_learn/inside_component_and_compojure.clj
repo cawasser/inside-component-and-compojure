@@ -16,9 +16,7 @@
 
 ; working with Component and Compojure at the REPL
 
-; TODO: 1. Multiple partitions (test & debug)
-
-; TODO: 5. add an nRepl we can remotely connect to
+; TODO: add an nRepl we can remotely connect to (is this useful?)
 
 (defn new-system [args _]
   (let [topo-config (merge args {:in-topic "aois" :out-topic "aoi-state"})]
@@ -53,6 +51,9 @@
   (keys system)
   (:server system)
   (:topology system)
+  (-> system :topology :config :host)
+  (-> system :topology :config :port)
+  (-> system :server :host)
 
   (stop)
 

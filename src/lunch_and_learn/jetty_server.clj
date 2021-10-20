@@ -2,13 +2,12 @@
   (:require [compojure.core :refer :all]
             [com.stuartsierra.component :as component]
             ;[lunch-and-learn.router :refer [app]]
-            [lunch-and-learn.api :refer [app]]
+            [lunch-and-learn.data-source :refer [app]]
             [ring.adapter.jetty :as jetty]))
 
 
 ; see "https://vlaaad.github.io/reveal/"
 
-"https://github.com/cawasser"
 
 
 (defrecord HTTPServer [port server topology]

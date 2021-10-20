@@ -19,12 +19,14 @@
     ret
     []))
 
+
 (defn get-aois-local [topology]
   (if-let [ret (topo/get-all-aois-local
                  (:topology topology)
                  (:out-topic topology))]
     ret
     []))
+
 
 (defn get-aoi [topology id]
   (topo/get-one-aoi
@@ -65,6 +67,21 @@
      :return Row
      :summary "get a single aoi given it's :id"
      (resp/ok (get-aoi topology id)))])
+
+
+(defn app [topology]
+  (sw/api
+    {:swagger
+     {:ui "/api"
+      :spec "/swagger.json"
+      :data {:info {:title "AOI State"
+                    :description "Get the current state of Areas of Interest"}
+             :tags [{:name "api", :description "AOI queries"}]}}}
+
+    (sw/context "/" []
+      :tags ["api"]
+
+      (queries topology))))
 
 
 
@@ -121,13 +138,14 @@
     (require '[com.stuartsierra.component.repl :refer [system]])
 
     (def topology (:topology system))
+    (def host (-> system :topology :config :host))
+    (def port (-> system :topology :config :port))
     (def id "alpha"))
 
+  (keys system)
+
   (->> (:out-topic topology)
-    (topo/get-all-aois (:topology topology))
-    (map (fn [[k v]]
-           {:id (:aoi k) :data-set v}))
-    (into []))
+    (topo/get-all-aois (:topology topology) host port))
 
 
   ())
@@ -148,12 +166,6 @@
     (:port (:config topology))
     (:out-topic topology))
 
-  ;(->> (:out-topic topology)
-  ;  (topo/get-all-aois (:topology topology)
-  ;    (:host (:config topology)) (:port (:config topology)))
-  ;  (map (fn [[k v]]
-  ;         {:id (:aoi k) :data-set v}))
-  ;  (into []))
 
 
   (if-let [ret (->> (:out-topic topology)
@@ -166,6 +178,7 @@
   ; get just one aoi
   (get-aoi topology "alpha")
   (get-aoi topology "bravo")
+  (get-aoi topology "delta")
 
 
   ())
