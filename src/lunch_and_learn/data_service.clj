@@ -9,7 +9,8 @@
             [jackdaw.client :as jc]
             [jackdaw.serdes.edn :as jse]
             [com.stuartsierra.component :as component]
-            [clj-http.client :as client]))
+            [clj-http.client :as client]
+            [clojure.tools.logging :as log]))
 
 
 (def app-config {"bootstrap.servers"                     "localhost:9092"
@@ -91,14 +92,15 @@
   (let [aoi-events-stream (j/kstream builder (topic-config in-topic))]
     (-> aoi-events-stream
       (j/filter (fn [[k v]]
-                  (#{:aoi-added :aoi-updated :aoi-deleted} (:event-type v))))
+                  (#{"aoi-added" "aoi-updated" "aoi-deleted"} (:event-type v))))
       (j/group-by-key)
       (j/aggregate (constantly #{})
         (fn [_ [_ event]]
+          (log/info "processing" in-topic event)
           (cond
-            (= :aoi-added (:event-type event)) (:aoi-needs event)
-            (= :aoi-removed (:event-type event)) (:aoi-needs event)
-            (= :aoi-deleted (:event-type event)) #{}))
+            (= "aoi-added" (:event-type event)) (:aoi-needs event)
+            (= "aoi-removed" (:event-type event)) (:aoi-needs event)
+            (= "aoi-deleted" (:event-type event)) #{}))
         (topic-config out-topic))
       (j/to-kstream)
       (j/to (topic-config out-topic))))
@@ -106,6 +108,7 @@
 
 
 (defn start! [config]
+  (log/info "start! (config)" config)
   (let [full-config     (merge app-config {StreamsConfig/STATE_DIR_CONFIG          (str "./tmp/" (:host config) "/" (:port config))
                                            StreamsConfig/APPLICATION_SERVER_CONFIG (str (:host config) ":" (:port config))})
         _               (println "full-config:" full-config)
@@ -188,9 +191,9 @@
 
 
   (get-all-aois (:topology (:topology system))
-    (:out-topic (:topology system))
-    (:host (:topology system))
-    (:post (:topology system)))
+    (-> system :topology :config :host)
+    (-> system :topology :config :port)
+    (:out-topic (:topology system)))
 
   (produce-one "aois"
     {:aoi "alpha"}
@@ -413,5 +416,67 @@
                  [:local])
         meta-vec)
       (into [])))
+
+  ())
+
+
+(comment
+  ; On Linux or Windows(?)
+  ; docker run -d --rm --net=host landoop/fast-data-dev
+
+  ; On Mac
+  ; docker run -d --rm -p 2181:2181 -p 3030:3030 -p 8081-8083:8081-8083 -p 9581-9585:9581-9585 -p 9092:9092 -e ADV_HOST=localhost landoop/fast-data-dev:latest
+
+  (do
+    (require '[jackdaw.admin :as ja])
+    (require '[clojure.edn :as edn])
+    (def path "./resources/public/")
+    (def store "aois"))
+
+  (do
+    (def admin-client (ja/->AdminClient app-config))
+    (ja/create-topics! admin-client [(topic-config "aois") (topic-config "aoi-state")]))
+
+  (do
+    (defn produce-one
+      ([topic k v]
+       (with-open [producer (jc/producer app-config (topic-config topic))]
+         @(jc/produce! producer (topic-config topic) k v)))))
+
+  (->> (str path "default-data/default-aois.edn")
+    slurp
+    edn/read-string
+    (map (fn [[k v]]
+           (produce-one store k v))))
+
+  ; just send one update
+  (produce-one store
+    {:aoi "alpha-hd"}
+    {:event-type "aoi-updated",
+     :aoi "alpha-hd",
+     :aoi-needs #{[7 7 "hidef-image" 0] [7 6 "hidef-image" 1]
+                  [7 5 "hidef-image" 3] [7 6 "hidef-image" 2]}})
+
+  (produce-one store
+    {:aoi "charlie-hd"}
+    {:event-type "aoi-added",
+     :aoi "charlie-hd",
+     :aoi-needs #{[7 7 "hidef-image" 0] [7 6 "hidef-image" 1]
+                  [7 5 "hidef-image" 3] [7 6 "hidef-image" 2]}})
+  (produce-one store
+    {:aoi "charlie-hd"}
+    {:event-type "aoi-updated",
+     :aoi "charlie-hd",
+     :aoi-needs #{[4 4 "hidef-image" 0] [4 5 "hidef-image" 1]}})
+
+
+
+
+  (produce-one store
+    {:aoi "tropical-hd"}
+    {:event-type "aoi-added",
+     :aoi "tropical-hd",
+     :aoi-needs #{[7 7 "hidef-image" 0] [7 6 "hidef-image" 1]
+                  [7 5 "hidef-image" 3] [7 6 "hidef-image" 2]}})
 
   ())
